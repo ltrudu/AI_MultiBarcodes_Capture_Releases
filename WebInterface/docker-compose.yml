@@ -1,0 +1,40 @@
+services:
+  multibarcode-webinterface:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: multibarcode-webinterface:latest
+    container_name: multibarcode-webinterface
+    ports:
+      - "${WEB_PORT:-3500}:${WEB_PORT:-3500}"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_password}
+      - MYSQL_DATABASE=${DB_NAME:-barcode_wms}
+      - MYSQL_USER=${DB_USER:-wms_user}
+      - MYSQL_PASSWORD=${DB_PASS:-wms_password}
+      - DB_HOST=127.0.0.1
+      - DB_NAME=${DB_NAME:-barcode_wms}
+      - DB_USER=${DB_USER:-wms_user}
+      - DB_PASS=${DB_PASS:-wms_password}
+      - WEB_PORT=${WEB_PORT:-3500}
+      - EXPOSE_PHPMYADMIN=${EXPOSE_PHPMYADMIN:-false}
+      - EXPOSE_MYSQL=${EXPOSE_MYSQL:-false}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${WEB_PORT:-3500}/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - multibarcode-network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  multibarcode-network:
+    driver: bridge

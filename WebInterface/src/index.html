@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">Barcode WMS - Zebra Technologies</title>
+    <link rel="stylesheet" href="css/wms-style-modern.css">
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1>
+            <span>📦</span>
+            <span id="header-title">Barcode Warehouse Management System</span>
+        </h1>
+        <div class="subtitle" id="header-subtitle">Zebra Technologies - AI MultiBarcode Capture Interface</div>
+        <button id="btn-settings" class="settings-button" title="Settings">
+            ⚙️
+        </button>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav">
+        <button id="btn-sessions" class="nav-button active">
+            📋 <span id="nav-capture-sessions">Capture Sessions</span>
+        </button>
+        <button id="btn-refresh" class="nav-button">
+            🔄 <span id="nav-refresh">Refresh</span>
+        </button>
+        <div style="margin-left: auto; color: #6c757d; font-size: 0.9rem;">
+            <span id="last-updated">Last updated: Never</span>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div id="main-content">
+            <!-- Content will be dynamically loaded here -->
+            <div class="loading">
+                <div class="spinner"></div>
+                <p id="initializing-text">Initializing WMS...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Endpoint Modal -->
+    <div id="endpoint-modal" class="modal hide">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="endpoint-modal-title">🔗 API Endpoint Configuration</h2>
+                <button class="modal-close" onclick="app.closeEndpointModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="endpoint-instruction">Use these endpoints to configure your Android AI MultiBarcode Capture application:</p>
+
+                <div class="endpoint-section">
+                    <h3 id="local-endpoint-title">🏠 Local Network Endpoint</h3>
+                    <div class="endpoint-box">
+                        <input type="text" id="local-endpoint" readonly>
+                        <button onclick="app.copyToClipboard('local-endpoint')" class="copy-btn">📋 <span id="copy-btn-text">Copy</span></button>
+                        <button onclick="app.showQRCode('local-endpoint')" class="qr-btn">📱 <span id="qr-btn-text">QR Code</span></button>
+                    </div>
+                    <small id="local-endpoint-desc">Use this endpoint when both the Android device and this server are on the same local network.</small>
+                </div>
+
+                <div class="endpoint-section">
+                    <h3 id="internet-endpoint-title">🌐 Internet Endpoint</h3>
+                    <div class="endpoint-box">
+                        <input type="text" id="internet-endpoint" readonly>
+                        <button onclick="app.copyToClipboard('internet-endpoint')" class="copy-btn">📋 <span id="copy-btn-text-2">Copy</span></button>
+                        <button onclick="app.showQRCode('internet-endpoint')" class="qr-btn">📱 <span id="qr-btn-text-2">QR Code</span></button>
+                    </div>
+                    <small id="internet-endpoint-desc">Use this endpoint when accessing the server from the internet (requires port forwarding or public hosting).</small>
+                </div>
+
+                <div class="endpoint-help">
+                    <h4 id="android-config-title">📱 Android App Configuration:</h4>
+                    <ol>
+                        <li id="config-step-1">Open the AI MultiBarcode Capture app</li>
+                        <li id="config-step-2">Go to Settings → Server Configuration</li>
+                        <li id="config-step-3">Paste one of the endpoints above</li>
+                        <li id="config-step-4">Test the connection and save</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div id="qr-modal" class="modal hide">
+        <div class="modal-content qr-modal-content">
+            <div class="modal-header">
+                <h2 id="qr-modal-title">📱 QR Code - Endpoint URL</h2>
+                <button class="modal-close" onclick="app.closeQRModal()">&times;</button>
+            </div>
+            <div class="modal-body qr-modal-body">
+                <div class="qr-container">
+                    <div id="qr-code-display"></div>
+                </div>
+                <div class="qr-info">
+                    <p><strong id="endpoint-url-label">Endpoint URL:</strong></p>
+                    <div class="qr-url" id="qr-url-text"></div>
+                    <p class="qr-instructions" id="qr-scan-instructions">Scan this QR code from your Android AI MultiBarcode Capture app Settings page to automatically configure the endpoint.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal hide">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="settings-modal-title">Settings</h2>
+                <button class="modal-close" onclick="app.closeSettingsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Configuration Section -->
+                <div class="settings-section">
+                    <h3 class="section-title">⚙️ Configuration</h3>
+                    <div class="section-content">
+                        <div class="config-item">
+                            <label for="language-select" class="config-label">🌐 Language</label>
+                            <select id="language-select" class="config-select">
+                                <option value="system" id="system-language-option">System Language</option>
+                            </select>
+                            <p class="config-description" id="language-description">Select the interface language</p>
+                        </div>
+
+                        <div class="config-item">
+                            <label for="theme-select" class="config-label">🎨 Theme</label>
+                            <select id="theme-select" class="config-select">
+                                <option value="modern">Modern</option>
+                                <option value="legacy">Legacy</option>
+                            </select>
+                            <p class="config-description" id="theme-description">Select the visual style</p>
+                        </div>
+
+                        <div class="config-item">
+                            <p class="section-description">Configure endpoint settings and connection parameters</p>
+                            <button id="settings-btn-endpoint" class="btn btn-primary">
+                                🔗 Endpoint Configuration
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SSL Certificates Section -->
+                <div class="settings-section">
+                    <h3 class="section-title">🔐 SSL Certificates</h3>
+                    <div class="section-content">
+                        <p class="section-description">Download certificate files for secure HTTPS connections</p>
+
+                        <div class="config-item">
+                            <h4 class="cert-title">🪟 Windows Certificate (wms_ca.crt)</h4>
+                            <p class="cert-description">Install this certificate in Windows "Trusted Root Certification Authorities" to eliminate browser security warnings.</p>
+                            <button id="download-windows-cert" class="btn btn-secondary">
+                                📥 Download Windows Certificate
+                            </button>
+                        </div>
+
+                        <div class="config-item">
+                            <h4 class="cert-title">📱 Android Certificate (android_ca_system.pem)</h4>
+                            <p class="cert-description">Install this certificate in Android system certificates for secure app connections.</p>
+                            <button id="download-android-cert" class="btn btn-secondary">
+                                📥 Download Android Certificate
+                            </button>
+                        </div>
+
+                        <div class="config-item">
+                            <h4 class="cert-title">📄 Installation Instructions</h4>
+                            <p class="cert-description">Step-by-step guides for installing certificates on different platforms.</p>
+                            <button id="show-cert-instructions" class="btn btn-info">
+                                📖 View Installation Guide
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Danger Zone Section -->
+                <div class="settings-section danger-section">
+                    <h3 class="section-title">⚠️ Danger Zone</h3>
+                    <div class="section-content">
+                        <p class="section-description">Irreversible actions that will permanently delete data</p>
+                        <button id="settings-btn-reset" class="btn btn-danger">
+                            🗑️ Erase All Data
+                        </button>
+                        <small class="danger-warning">⚠️ This action cannot be undone</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="modal hide">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="export-modal-title">📊 <span id="export-data-title">Export Data</span></h2>
+                <button class="modal-close" onclick="app.closeExportModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="export-description"></p>
+
+                <div class="export-options">
+                    <div class="export-option" onclick="app.exportData('txt')">
+                        <div class="export-icon">📄</div>
+                        <div class="export-details">
+                            <h3 id="txt-file-title"></h3>
+                            <p id="txt-file-desc"></p>
+                        </div>
+                    </div>
+
+                    <div class="export-option" onclick="app.exportData('csv')">
+                        <div class="export-icon">📊</div>
+                        <div class="export-details">
+                            <h3 id="csv-file-title"></h3>
+                            <p id="csv-file-desc"></p>
+                        </div>
+                    </div>
+
+                    <div class="export-option" onclick="app.exportData('excel')">
+                        <div class="export-icon">📈</div>
+                        <div class="export-details">
+                            <h3 id="excel-file-title"></h3>
+                            <p id="excel-file-desc"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="export-info">
+                    <p><strong id="export-will-include"></strong></p>
+                    <ul>
+                        <li id="export-session-info"></li>
+                        <li id="export-barcode-info"></li>
+                        <li id="export-status-info"></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Certificate Instructions Modal -->
+    <div id="cert-instructions-modal" class="modal hide">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="cert-instructions-modal-title">🔐 Certificate Installation Instructions</h2>
+                <button class="modal-close" onclick="app.closeCertificateInstructionsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="cert-instructions-content">
+                    <!-- Windows Instructions -->
+                    <div class="cert-section">
+                        <h3 class="cert-section-title">🪟 Windows Installation</h3>
+                        <ol class="cert-instructions-list">
+                            <li>Download the <strong>Windows Certificate (wms_ca.crt)</strong> from the SSL Certificates section above</li>
+                            <li>Right-click the downloaded file and select <strong>"Install Certificate..."</strong></li>
+                            <li>Choose <strong>"Local Machine"</strong> (requires admin) or <strong>"Current User"</strong></li>
+                            <li>Select <strong>"Place all certificates in the following store"</strong></li>
+                            <li>Click <strong>"Browse..."</strong> and select <strong>"Trusted Root Certification Authorities"</strong></li>
+                            <li>Complete the wizard and confirm the security warning</li>
+                            <li>Access <code>https://localhost:3543</code> - no more security warnings!</li>
+                        </ol>
+                    </div>
+
+                    <!-- Android Instructions -->
+                    <div class="cert-section">
+                        <h3 class="cert-section-title">📱 Android Installation</h3>
+                        <ol class="cert-instructions-list">
+                            <li>Download the <strong>Android Certificate (android_ca_system.pem)</strong></li>
+                            <li>Transfer the file to your Android device (via USB, email, or cloud storage)</li>
+                            <li>Go to <strong>Settings → Security → Encryption & credentials → Install from storage</strong></li>
+                            <li>Select the transferred certificate file</li>
+                            <li>Choose <strong>"CA certificate"</strong> when prompted</li>
+                            <li>Provide a name (e.g., "WMS CA") and confirm installation</li>
+                        </ol>
+                    </div>
+
+                    <!-- Verification -->
+                    <div class="cert-section">
+                        <h3 class="cert-section-title">🔍 Verification</h3>
+                        <ul class="cert-instructions-list">
+                            <li><strong>Windows:</strong> Open <code>certmgr.msc</code>, check "Trusted Root Certification Authorities"</li>
+                            <li><strong>Android:</strong> Settings → Security → Trusted credentials → User tab</li>
+                            <li><strong>Browser:</strong> Visit <code>https://localhost:3543</code> for secure connection</li>
+                        </ul>
+                    </div>
+
+                    <!-- Important Note -->
+                    <div class="cert-section cert-warning">
+                        <h3 class="cert-section-title">⚠️ Important</h3>
+                        <p>Only install these certificates on devices you control. These are self-signed certificates for your local network.</p>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="cert-actions">
+                        <button onclick="app.downloadCertificate('wms_ca.crt', 'wms-ca-certificate.crt')" class="btn btn-primary">
+                            📥 Download Windows Certificate
+                        </button>
+                        <button onclick="app.downloadCertificate('android_ca_system.pem', 'android-ca-certificate.pem')" class="btn btn-primary">
+                            📥 Download Android Certificate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer style="text-align: center; padding: 2rem; color: #6c757d; font-size: 0.9rem;">
+        <p>
+            <span id="footer-copyright">Barcode WMS &copy; 2024 - Powered by Zebra AI Vision SDK</span><br>
+            <small id="footer-connection">Connected to Android AI MultiBarcode Capture Application</small>
+        </p>
+    </footer>
+
+    <!-- QR Code Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+
+    <!-- JavaScript -->
+    <script src="js/wms-app.js?v=20250918170000"></script>
+
+    <script>
+        // Update last updated timestamp
+        function updateLastUpdated() {
+            const element = document.getElementById('last-updated');
+            if (element) {
+                element.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+            }
+        }
+
+        // Update timestamp when app loads or refreshes
+        document.addEventListener('DOMContentLoaded', () => {
+            updateLastUpdated();
+
+            // Update timestamp every minute
+            setInterval(updateLastUpdated, 60000);
+        });
+
+        // Update timestamp when API calls complete
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            return originalFetch.apply(this, args).then(response => {
+                if (response.ok) {
+                    updateLastUpdated();
+                }
+                return response;
+            });
+        };
+    </script>
+</body>
+</html>

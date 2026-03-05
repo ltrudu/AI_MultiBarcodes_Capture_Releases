@@ -1,0 +1,621 @@
+# Changelog
+
+All notable changes to the AI MultiBarcode Capture Application are documented in this file.
+
+### Version 1.36 - ⚡ **Performance & Android 15+ Compatibility**
+
+**Ultra-fast native grayscale image processing with NDK/JNI and Android 15+ 16KB page size support.**
+
+#### ⚡ **Native NDK Grayscale Optimization:**
+
+• **Ultra-Fast Y-Plane Extraction**: Native C++ implementation extracts grayscale directly from YUV Y-plane
+  - **No Color Conversion Required**: Y-plane IS grayscale - just copy it directly (no YUV→RGB math needed)
+  - **Single Plane Processing**: Only reads Y-plane, completely skips U/V planes
+  - **Direct Bitmap Writing**: Native code writes directly to Android Bitmap using `AndroidBitmap_lockPixels()` for zero-copy operation
+  - **Automatic Fallback**: Graceful Java implementation fallback when native library is unavailable
+
+• **Performance Comparison** (Old RGB vs New Grayscale):
+
+  | Metric | YUV→RGB | Y→Grayscale | Improvement |
+  |--------|---------|-------------|-------------|
+  | Planes processed | 3 (Y,U,V) | 1 (Y only) | 3x less data |
+  | Operations/pixel | ~15 | ~3 | 5x fewer ops |
+  | Color math | Yes (BT.601) | None | No computation |
+  | Memory reads | 3 buffers | 1 buffer | 3x less I/O |
+
+#### 📱 **Android 15+ 16KB Page Size Support:**
+
+• **Future-Proof Compatibility**: Native library built with 16KB page size alignment for Android 15+ devices
+  - **`-Wl,-z,max-page-size=16384`**: Linker flag ensures compatibility with devices using 16KB memory pages
+  - **Seamless Operation**: Works transparently on both traditional 4KB and new 16KB page size devices
+  - **No Runtime Configuration Required**: Compatibility is built into the native library at compile time
+
+#### 🔧 **Technical Implementation:**
+
+• **Native Library (`libyuvprocessor.so`)**:
+  - `cropYToGrayscaleBitmapNative()`: Ultra-fast Y-plane to grayscale Bitmap (primary method)
+  - `cropYuvToBitmapNative()`: Full YUV420 to RGB Bitmap conversion (available if needed)
+  - ARM NEON SIMD optimization on 32-bit devices (`-mfpu=neon` for armeabi-v7a)
+  - Aggressive compiler optimizations: `-O3 -ffast-math` for maximum performance
+
+• **Build Configuration**:
+  - CMake-based native build fully integrated with Gradle build system
+  - Multi-ABI support: arm64-v8a, armeabi-v7a, x86, x86_64
+  - Automatic native library bundling in APK
+
+• **Java Integration**:
+  - `NativeYuvProcessor.java`: JNI wrapper class with static library loading
+  - `cropYuvToGrayscaleNative()`: Primary method using Y-plane extraction
+  - `cropYuvToGrayscaleJava()`: Java fallback for devices without native support
+  - `isAvailable()`: Runtime check for native library availability
+
+#### 💡 **Benefits:**
+
+• **Maximum Performance**: Grayscale Y-plane extraction is the fastest possible approach for capture zone cropping
+• **Android 15+ Ready**: Application prepared for upcoming Android devices with 16KB page sizes
+• **Battery Efficiency**: Minimal CPU usage extends battery life during extended scanning sessions
+• **SDK Compatible**: Zebra AI Vision SDK fully supports grayscale bitmap input for barcode detection
+• **Enterprise Scalability**: Improved performance supports high-volume barcode capture workflows
+
+---
+
+### Version 1.35 - 🎨 **Theme System & Custom Typography**
+
+**Comprehensive visual customization with dual theme support and Zebra brand fonts for both Android app and web interface.**
+
+#### 🎨 **Android App Theme System:**
+
+• **Dual Theme Support**: Choose between Legacy (classic blue) and Modern (Zebra green/dark) visual themes
+  - **Legacy Theme**: Traditional blue color scheme with light backgrounds and familiar UI patterns
+  - **Modern Theme**: Contemporary dark design featuring Zebra's latest brand colors
+  - **Settings Integration**: Easy theme selection in app Settings with instant preview
+  - **Persistent Preferences**: Theme choice saved and automatically restored on app launch
+  - **Centralized Theme Management**: New `ThemeHelpers` utility class for consistent theming across all activities
+
+• **Custom Zebra Typography**: Professional brand fonts integrated across the application
+  - **Smart Font Application**: Fonts automatically applied when using Modern theme
+  - **Intelligent Script Detection**: Custom fonts applied only for Latin-based languages including:
+    - Western European: English, German, French, Spanish, Italian, Portuguese, Dutch
+    - Eastern European: Polish, Czech, Slovak, Hungarian, Romanian, Croatian, Slovenian
+    - Nordic: Swedish, Norwegian, Danish, Finnish, Icelandic
+    - Baltic: Estonian, Latvian, Lithuanian
+    - Other Latin-script: Turkish, Indonesian, Vietnamese, Swahili, and 30+ more
+  - **Native Font Preservation**: Non-Latin languages automatically use optimized native system fonts:
+    - Arabic, Russian (Cyrillic), Chinese, Japanese, Korean, Hebrew, Greek, Thai, etc.
+  - **Automatic Locale Detection**: Runtime language detection ensures appropriate font selection
+  - **Graceful Fallback**: If custom fonts fail to load, system defaults are used seamlessly
+
+• **Enhanced Android 15 System Bar Management**:
+  - Full compatibility with Android 15 (API 35) edge-to-edge display
+  - Improved system bar rendering with proper window insets handling for API 35+
+  - Optimized status bar and navigation bar color management across all Android versions (11-15)
+  - Enhanced `configureSystemBars()` method with version-specific implementations
+  - Proper handling of WindowInsetsListener for Android 15 navigation bar background
+
+#### 🌐 **Web Interface Theme Consistency:**
+
+• **Modern Theme Availability**: The Modern theme introduced in v1.34 for the web interface is now complemented by matching Android app themes
+  - **Unified Design Language**: Consistent visual experience across both Android app and web management interface
+  - **Brand Alignment**: Both platforms now feature Zebra's modern brand identity with the Modern theme option
+  - **Flexible User Choice**: Users can independently select preferred themes for app and web interface
+  - **Cross-Platform Experience**: Seamless transition between Android app and web interface with familiar visual design
+
+#### 🔧 **Technical Implementation:**
+
+• **ThemeHelpers Utility Class**: Centralized theme management system
+  - `applyTheme()`: Applies selected theme based on user preferences
+  - `configureSystemBars()`: Manages system bar appearance across Android versions
+  - `applyCustomFont()`: Conditionally applies Zebra fonts based on theme and locale
+  - `isLatinScript()`: Detects whether current locale uses Latin alphabet
+
+• **Font Resource Management**:
+  - Fonts stored in `assets/` directory for runtime loading
+  - Typeface caching for improved performance
+  - Recursive font application to all TextViews and Buttons in activity layouts
+
+• **Theme Persistence**:
+  - SharedPreferences integration for theme selection storage
+  - Automatic theme restoration on app launch
+  - Real-time theme switching without activity restart
+
+#### 💡 **Benefits:**
+
+• **Professional Branding**: Zebra brand identity consistently applied across all platforms (Android app and web interface)
+• **Enhanced Readability**: Theme-appropriate typography optimized for each language script
+• **User Customization**: Choose themes that match personal preferences or corporate standards
+• **Global Accessibility**: Smart font selection ensures optimal readability for international users in 76+ languages
+• **Modern User Experience**: Contemporary design language aligned with Material Design 3 principles
+• **Cross-Platform Consistency**: Unified theme system across Android app and web management interface
+• **Improved Maintainability**: Centralized theme management reduces code duplication
+• **Future-Ready Design**: Foundation for additional themes and customization options
+
+---
+
+### Version 1.34 - 📱 **Android 15 Update & Enhanced UI/UX**
+
+**Major platform update with comprehensive UI improvements and expanded deployment options.**
+
+#### 📱 **Android 15 (API 35) Migration:**
+
+• **Target SDK Update**: Migrated from Android 14 (API 34) to Android 15 (API 35) for latest platform features and security enhancements
+
+• **Compile SDK Update**: Updated compile SDK to API 35 ensuring compatibility with the latest Android features
+
+• **Material Design 3 Integration**: Updated to Material Components 1.13.0 for modern Material You design language support
+
+• **CameraX Updates**: Enhanced camera functionality with CameraX 1.5.1 for improved stability and performance
+
+#### 🎨 **Web Interface Theming:**
+
+• **Modern/Legacy Theme Selection**: User-selectable visual themes for the web management interface:
+  - **Modern Theme** (Default): Contemporary design with updated visual elements
+  - **Legacy Theme**: Classic interface styling for users preferring traditional appearance
+  - **Persistent Preference**: Theme selection saved to browser localStorage and automatically applied on return visits
+  - **Settings Integration**: Convenient theme selector in Settings modal Configuration section
+  - **Dynamic Switching**: Instant theme application without page reload for seamless user experience
+  - **Theme Management Methods**: Complete theme initialization, switching, and storage implementation
+  - **Automatic Theme Loading**: User's saved theme preference applied on page startup
+
+#### 🔄 **SDK & Dependency Updates:**
+
+• **Zebra AI Vision SDK 3.1.4**: Updated from 3.0.5 to 3.1.4 for latest AI detection improvements and bug fixes
+
+• **Dynamic Version Display**: About screen now automatically reflects dependency versions from `libs.versions.toml`:
+  - No more hardcoded version strings
+  - Single source of truth for all dependency versions
+  - BuildConfig fields generated from version catalog
+
+• **Updated Dependencies**:
+  - CameraX: 1.5.1 (improved camera stability)
+  - Material Components: 1.13.0 (Material Design 3)
+  - Gson: 2.13.2 (JSON parsing improvements)
+  - Android Gradle Plugin: 8.13.0 (latest build tools)
+
+#### 🌐 **New Web Server Deployment Option:**
+
+• **XAMPP Installation Support**: Alternative deployment method for environments without Docker:
+  - **XAMPP Quick Install**: Pre-configured archive for instant setup - just extract and run
+  - **Automated Scripts**: One-click deployment with `xampp_start_server.bat`
+  - **Flexible Installation**: Supports both `C:\xampp` and `D:\xampp` with automatic detection
+  - **No Admin Rights Required**: Portable installation option for restricted environments
+  - **Full Feature Parity**: Complete web management system without Docker dependency
+
+• **Enhanced Database Initialization**: Improved database setup with verification and automatic schema creation
+
+• **Smart Path Detection**: Scripts automatically detect XAMPP location (C: or D: drive) without manual configuration
+
+• **Comprehensive Documentation**: Complete XAMPP installation guide with troubleshooting and best practices
+
+• **Updated Build Configuration**: Enhanced `build.gradle.kts` with BuildConfig fields for dynamic version management
+
+• **Improved About Screen**: Displays real-time dependency versions from version catalog
+
+#### 💡 **Benefits:**
+
+• **Latest Platform Support**: Access to Android 15 features and security improvements
+• **Modern UI**: Professional appearance with Material Design 3
+• **Better Code Quality**: Reduced duplication and improved maintainability
+• **Flexible Deployment**: Choose between Docker or XAMPP based on your environment
+• **Simplified Maintenance**: Centralized version management and automated updates
+• **Enhanced User Experience**: Consistent navigation and visual design across all screens
+• **Customizable Interface**: User-selectable themes for personalized web management experience
+
+#### 📚 **Wiki Updates:**
+
+• **🖥️ [XAMPP Installation Guide](wiki/04-Installation-Guide-XAMPP.md)**: NEW comprehensive guide for Docker-free deployment
+  - **Method 0: XAMPP Quick Install** - Fastest setup via pre-configured 7z archive
+  - Automated installation scripts
+  - Manual step-by-step configuration
+  - Supports C:\xampp or D:\xampp with auto-detection
+  - Detailed troubleshooting section
+
+### Version 1.33 - 🎯 **Configurable Capture Trigger Mode**
+
+**Enhanced scanning flexibility with customizable capture trigger behavior.**
+
+#### 🔘 **Capture Trigger Mode:**
+
+• **User-Selectable Trigger Behavior**: Choose between two capture modes to match your workflow preferences:
+  - **On Scan Press** (Default): Capture barcodes immediately when the scan button is pressed
+  - **On Scan Release**: Capture barcodes when the scan button is released
+
+• **Settings Integration**: New "Capture Trigger Mode" section added to Settings Activity, positioned conveniently after the Language selection
+
+• **Managed Configuration Support**: Full EMM/MDM integration allows administrators to remotely configure the capture trigger mode across all deployed devices
+
+• **Persistent Settings**: Capture mode preference is saved and automatically restored when the app resumes
+
+• **Real-Time Updates**: Configuration changes applied through managed configuration are reflected immediately without requiring app restart
+
+#### 💡 **Use Cases:**
+
+• **Press Mode**: Ideal for rapid scanning workflows where immediate feedback is required
+• **Release Mode**: Better for scenarios requiring precise aim before capture confirmation
+
+This enhancement provides greater flexibility in barcode capture workflows, allowing users and administrators to optimize the scanning experience for specific operational requirements.
+
+## Version 1.32 - ⚡ **Performance & Compatibility Enhancements**
+
+**Optimized barcode detection with enhanced device compatibility and significant performance improvements.**
+
+### 🚀 **Core Improvements:**
+
+• **AI Vision SDK 3.0.5 Integration**: Upgraded to the latest Zebra AI Vision SDK, delivering improved detection accuracy, enhanced stability, and access to the newest AI capabilities for superior barcode recognition performance
+
+• **Universal Device Compatibility**: Implemented comprehensive runtime processor ordering configuration with support for all available inference targets (DSP, GPU, CPU), ensuring optimal operation across Zebra's entire device portfolio including TC53E and other enterprise mobile computers
+
+• **Asynchronous Processing Architecture**: Completely refactored data filtering operations to execute on dedicated background threads, eliminating UI thread blocking and delivering seamless real-time scanning performance with instant visual feedback
+
+• **High-Performance Decoder Implementation**: Migrated from Barcode Tracker to the optimized Barcode Decoder architecture, achieving substantially faster barcode detection cycles, reduced computational overhead, and improved battery efficiency during extended scanning sessions
+
+### 💡 **Technical Benefits:**
+
+• **Enhanced Processing Speed**: Optimized detection pipeline significantly reduces latency between frame capture and barcode recognition
+
+• **Platform Flexibility**: Runtime processor configuration automatically adapts to available hardware accelerators for maximum efficiency
+
+• **Improved User Experience**: Background thread architecture maintains fluid UI responsiveness even during high-volume barcode processing
+
+• **Future-Proof Architecture**: Latest SDK version ensures long-term compatibility and access to upcoming AI Vision features
+
+### 🔧 **Implementation Details:**
+
+• **Thread-Optimized Filtering**: Dedicated executor service for regex pattern matching and data validation operations
+
+• **Decoder Migration**: Complete replacement of EntityBarcodeTracker with BarcodeDecoder for streamlined processing
+
+• **Processor Fallback Chain**: Intelligent runtime ordering ensures optimal inference target selection based on device capabilities
+
+• **SDK API Updates**: Leveraged new SDK 3.0.5 APIs for improved performance and reduced memory footprint
+
+This release represents a significant advancement in barcode capture performance and device compatibility, delivering enterprise-grade scanning capabilities optimized for demanding production environments across Zebra's complete mobile computing ecosystem.
+
+### Version 1.30 - 🔍 **Updated Translation Files**
+
+#### 📚 **Wiki Updates:**
+
+• **📚 [Complete Regex Pattern Library](wiki/16-Common-Regex-Expressions.md)**: Comprehensive collection of 300+ regex patterns covering web URLs, device identifiers, government IDs, license plates, postal codes, phone numbers, and industry standards
+
+• **🔐 [Understanding Certificates for Beginners](wiki/17-Understanding-Certificates-For-Beginners.md)**: Complete beginner's guide explaining certificate creation, platform-specific requirements, and how to create self-signed certificates that Windows and Android recognize as legitimate Certificate Authority certificates
+
+## Version 1.29 - 🔍 **Advanced Barcode Filtering System**
+
+**Enhanced barcode processing capabilities with intelligent pattern-based filtering for precision data capture.**
+
+### 🆕 **New Features:**
+• **Regular Expression Filtering**: Powerful pattern-based barcode filtering system that captures only barcodes matching specific criteria
+• **Real-time Pattern Matching**: Filtering applied during live scanning for immediate results
+• **Comprehensive Pattern Examples**: Built-in documentation with common regex patterns for various use cases
+
+### ⚙️ **Advanced Filtering Capabilities:**
+• **Numeric-Only Filtering**: Capture only numerical barcodes (UPC, EAN codes)
+• **URL Pattern Matching**: Filter for HTTPS URLs in QR codes
+• **Product Code Formats**: Match specific alphanumeric patterns for inventory systems
+• **Serial Number Validation**: Filter for standardized serial number formats
+• **Custom Pattern Support**: Create complex regex patterns for specialized applications
+• **📚 [Complete Regex Pattern Library](wiki/16-Common-Regex-Expressions.md)**: Comprehensive collection of regex patterns for web URLs, device identifiers, government IDs, product codes, and industry standards
+
+### 🛠 **Enterprise Management:**
+• **Managed Configuration Support**: Full enterprise MDM/EMM integration for remote filtering configuration
+• **Comprehensive Documentation**: Updated configuration guides with filtering setup instructions
+• **Error Handling**: Robust pattern validation with fallback behavior for invalid expressions
+• **Performance Optimized**: Efficient regex processing without impacting scan performance
+
+### 🔧 **Technical Implementation:**
+• **New Settings UI**: Added foldable Filtering section with enable checkbox and regex text input
+• **Constants Integration**: Added filtering preference constants for enterprise configuration
+• **SharedPreferences**: Persistent storage of filtering settings with default values
+• **Real-time Validation**: Live regex pattern matching during barcode detection
+• **Managed Config Schema**: Updated app_restrictions.xml for enterprise deployment
+
+### 📚 **Documentation Updates:**
+• **Regular Expression Guide**: Comprehensive filtering documentation with practical examples
+• **Symbologies Reference**: Complete table of all 46 supported barcode symbologies with default settings
+• **Configuration Instructions**: Step-by-step setup guides for filtering and symbology management
+• **Enterprise Integration**: Updated managed configuration documentation
+
+This release transforms the application into a precision tool for selective barcode capture, perfect for quality control, inventory management, and specialized data collection workflows.
+
+## Version 1.27
+**🔓 Simplified Android Authentication**
+
+Streamlined Android application HTTP post configuration by removing authentication complexity for improved demonstration and development experience.
+
+### Major Changes:
+• **Authentication Removal**: Completely removed authentication checkbox, username, and password fields from Android app HTTP post settings
+• **Simplified Configuration**: Android app now requires only endpoint URL configuration for HTTP/HTTPS communication
+• **UI Cleanup**: Removed authentication-related UI components from settings layout (activity_setup.xml)
+• **Code Simplification**: Eliminated KeystoreHelper dependencies and authentication logic throughout the application
+
+This release focuses on simplifying the user experience for demonstration and development scenarios while preserving all essential application functionality.
+
+### **Server Update** 🔄
+**Network IP Update Scripts**
+
+Added automatic IP update scripts to handle network changes when connecting to new WiFi networks or different locations.
+
+• **New Scripts**: `update-network-ip.bat` (Windows) and `update-network-ip.sh` (Linux/macOS) automatically detect and update IP configuration
+
+• **Antivirus-Safe**: Scripts use only standard system commands to avoid security software conflicts
+
+• **Data Preservation**: Docker container restart maintains all session and barcode data
+
+• **Updated Documentation**: Added "[Managing IP Changes](wiki/11-Managing-IP-Changes.md)" guide to the wiki
+
+**WebServer Update Scripts:**
+• **Live Updates**: `update-webserver.bat` (Windows) and `update-webserver.sh` (Linux/macOS) update website files without rebuilding containers
+
+• **Smart Container Management**: Automatically handles container status checking, starting stopped containers when needed
+
+• **Complete File Sync**: Updates all website files, API endpoints, configurations, and language translations in running containers
+
+• **Zero Data Loss**: Updates preserve all database data and user sessions while applying latest code changes
+
+• **Development Workflow**: Streamlined git-to-deployment process for efficient development and maintenance
+
+• **Comprehensive Guide**: Complete documentation available in "[Updating the Server](wiki/12-Updating-Server.md)" wiki page
+
+**HTTPS Certificate Management & Download Features:**
+• **🔐 Automatic SSL Certificate Generation**: Self-signed CA and server certificates automatically generated with `create-certificates.bat` and `create-certificates.sh` scripts
+
+• **📥 Web-Based Certificate Downloads**: Download CA certificates directly from the web interface settings for easy Windows and Android installation
+
+• **🌐 Secure HTTPS Support**: Full HTTPS implementation with Apache SSL on port 3543, providing encrypted communication for enterprise environments
+
+• **📱 Android System Certificate Support**: Generated Android system certificates (`.pem` format) for device-wide SSL trust without app-embedded certificates
+
+• **🪟 Windows Certificate Integration**: Windows-compatible CA certificates for browser trust and enterprise certificate management
+
+• **📖 Interactive Installation Guide**: Built-in modal popup with step-by-step certificate installation instructions for Windows and Android platforms
+
+• **🔄 Certificate Deployment Pipeline**: Automated certificate copying to web-accessible directories during container startup and updates
+
+• **🛡️ Enterprise Security**: Complete PKI infrastructure with certificate chain validation for secure enterprise communications
+
+
+## Version 1.26
+**📋 Enhanced Enterprise Managed Configuration**
+
+Complete managed configuration synchronization with comprehensive HTTP/HTTPS endpoint management for enterprise deployment.
+
+## Version 1.25
+**📊 Enterprise Export System & Enhanced Web Management**
+
+Major data export capabilities and advanced web interface enhancements with significant infrastructure improvements developed in the Improve_WebInterface branch:
+
+### Major New Features:
+• **📊 Complete Export System**: Full data export functionality supporting TXT, CSV, and native XLSX formats - replicating Android app export capabilities in the web interface with session-based filtering
+• **📈 Real XLSX Generation**: Native Excel file creation using custom SimpleXLSXWriter library with proper OpenXML format - eliminating CSV-to-Excel conversion dependencies
+• **🎯 Enhanced User Experience**: Improved barcode processing workflow with visual feedback, optimized interaction design, and streamlined user operations
+• **🌐 Advanced Translation Updates**: Updated translation files across 76+ languages with new export-related terminology, UI improvements, and enhanced multilingual support
+• **🔧 Smart IP Resolution**: Automatic host IP detection for Docker containers, eliminating manual IP configuration complexity for Android connectivity
+• **🛡️ Simplified Security Configuration**: Global cleartext HTTP traffic permission for development environments, removing IP-specific network restrictions and configuration overhead
+
+### Technical Enhancements:
+• **Multi-Format Export API**: RESTful API supporting TXT, CSV, and XLSX exports with session-based data filtering and comprehensive error handling
+• **Native XLSX Writer**: Custom lightweight XLSX generation without external dependencies using PHP ZipArchive with proper OpenXML structure
+• **Intelligent IP Detection**: Multi-method host IP detection prioritizing 192.168.x.x networks with Docker container filtering and automatic fallback mechanisms
+• **Enhanced UX Workflows**: Improved barcode marking system with better visual feedback, user interaction patterns, and processing state management
+• **Cross-Browser Compatibility**: Consistent UI rendering across Chrome, Edge, and other browsers with enhanced CSS styling and responsive design
+• **Automated Network Configuration**: Smart network security configuration removing manual IP management complexity for Android app connectivity
+
+### Export System Features:
+• **Session-Based Export**: Export functionality with multi-session selection and batch processing capabilities
+• **Format Consistency**: Export formats match Android app output exactly (TXT with headers, CSV with semicolon delimiters, XLSX with proper Excel formatting)
+• **Real-time Export**: Direct download functionality with proper MIME types and browser compatibility
+• **Export API Debugging**: Comprehensive debug system with detailed error reporting and troubleshooting capabilities
+• **Composer Integration**: Enhanced Docker configuration with Composer support for PHP dependencies and library management
+
+### Infrastructure Improvements:
+• **Enhanced Startup Scripts**: Automatic IP detection in start-services.bat (Windows) and start-services.sh (Linux/macOS) with intelligent network interface detection
+• **Docker Container Management**: Improved container lifecycle with automatic host IP environment variable passing and service reliability
+• **Network Security Enhancement**: Global cleartext traffic permission in network_security_config.xml eliminating specific IP address maintenance
+• **Database Schema Optimization**: Corrected table references and field mappings for improved data consistency and export accuracy
+
+### Android App Enhancements:
+• **Simplified Network Configuration**: Global cleartext HTTP permission eliminating the need for specific IP address maintenance in network security configuration
+• **Enhanced Connectivity**: Improved connection reliability with automatic network configuration handling for various deployment scenarios
+• **Version Update**: Application version updated to 1.25 reflecting the enhanced export and connectivity capabilities
+
+### Enterprise Benefits:
+• **Unified Data Management**: Web-based export system matches Android app functionality providing seamless data flow between mobile and web platforms
+• **Simplified Deployment**: Automatic IP resolution and network configuration eliminates IT configuration complexity and reduces deployment errors
+• **Enhanced Productivity**: Improved user workflows and export capabilities reduce time-to-action for barcode processing operations and data management
+• **Better Integration**: Complete export system enables seamless enterprise data integration with existing business systems and workflows
+• **Reduced Maintenance**: Automated network configuration and intelligent IP detection minimize ongoing IT maintenance requirements
+
+This release significantly enhances enterprise data management capabilities while simplifying deployment and network configuration complexity for IT teams. The complete export system provides web-based functionality matching the Android app's capabilities, enabling unified enterprise data workflows.
+
+## Version 1.24
+**🚀 Enterprise QR Code Configuration & Enhanced Docker Deployment**
+
+Revolutionary QR Code endpoint configuration capabilities with major Docker infrastructure improvements developed in the Update_WebInterface branch:
+
+### Major New Features:
+• **📱 QR Code Endpoint Configuration System**: Automatic HTTP endpoint configuration by scanning QR codes from the Web Management System, eliminating manual URL entry and deployment complexity
+• **Zero-Typing Setup**: WMS generates QR codes for instant mobile configuration with DataWedge/Zebra Imager integration
+• **🐳 Unified Docker Container Architecture**: Single container deployment containing Apache+PHP web server, MySQL database, and phpMyAdmin services
+• **Enhanced Deployment Scripts**: Automated deployment with `start-services.bat` (Windows) and `start-services.sh` (Linux/macOS)
+• **🌐 Enhanced Web Management System**: Built-in QR code generator, improved responsive design, and better real-time session monitoring
+• **📖 Comprehensive QR Code Documentation**: Complete setup guide with troubleshooting, security guidelines, and deployment procedures
+
+### Technical Enhancements:
+• **Automatic QR Code Processing**: Android app detects QR codes with `AIMultiBarcodeEndpoint:` prefix for instant endpoint configuration
+• **DataWedge Integration**: Built-in QR code scanning via DataWedge profile in SettingsActivity with toast confirmation messages
+• **Multi-Service Container**: Supervisord-managed container with Apache, MySQL, and phpMyAdmin services
+• **Enhanced Security**: Input validation, endpoint verification, and secure configuration handling
+• **Container Orchestration**: Persistent data storage, health monitoring, and simplified management
+
+### Android App Enhancements:
+• **Settings QR Code Scanning**: Integrated QR code detection in SettingsActivity for endpoint configuration
+• **Automatic Validation**: Real-time endpoint format validation and user feedback
+• **String Internationalization**: Added "endpoint_updated_from_qr" message for successful configuration
+• **Thread-Safe Updates**: Proper UI thread handling for QR code processing with runOnUiThread()
+
+### Web Management System Features:
+• **QR Code Generation**: Built-in QR code generator for endpoint configuration sharing
+• **Enhanced User Interface**: Improved responsive design for mobile and desktop compatibility
+• **Better Session Monitoring**: Enhanced real-time updates and device tracking capabilities
+• **Simplified Deployment**: Single container architecture reduces operational complexity
+
+### Docker Infrastructure:
+• **Unified Container**: Single multibarcode-webinterface container with all services
+• **Automated Scripts**: Platform-specific deployment scripts for easy setup
+• **Container Management**: Simplified lifecycle management and maintenance procedures
+• **Development & Production**: Flexible configuration for different deployment environments
+
+### Documentation Updates:
+• **QR Code Configuration Guide**: Step-by-step instructions in Android App Configuration wiki
+• **Troubleshooting Section**: Common QR code scanning issues and solutions
+• **Security Guidelines**: Best practices for QR code deployment in enterprise environments
+• **Docker Deployment**: Updated procedures for unified container architecture
+
+### Enterprise Benefits:
+• **Simplified IT Deployment**: Zero configuration errors with QR code scanning eliminates manual URL mistakes
+• **Rapid Device Setup**: Multiple devices can be configured in seconds with QR code scanning
+• **Scalable Infrastructure**: Single container management reduces operational overhead and complexity
+• **Enhanced Monitoring**: Better visibility into device connections, configurations, and session data
+• **User-Friendly Setup**: No technical knowledge required for endpoint configuration
+
+The QR Code configuration system transforms enterprise deployment from complex manual setup to simple one-scan configuration, while the unified Docker container architecture simplifies deployment and maintenance for IT teams. This release establishes AI MultiBarcode Capture as the premier enterprise barcode scanning solution with industry-leading deployment simplicity.
+
+## Version 1.23
+**🚀 Enterprise Web Management System with Real-Time Data Synchronization**
+
+Revolutionary enterprise-grade web management system with complete Docker deployment and real-time barcode data synchronization:
+
+### Major New Features:
+• **Complete Web Management System (WMS)**: Full-featured web interface for real-time barcode session monitoring and management with live dashboard
+• **HTTP(s) Post Integration**: Dual-mode operation enabling Android app to upload data directly to web backend via HTTP/HTTPS endpoints
+• **Real-Time Data Synchronization**: Live dashboard with 1-second refresh intervals showing barcode captures as they happen across multiple devices
+• **Docker Infrastructure**: Complete containerized deployment stack with Apache web server, MySQL database, and phpMyAdmin administration interface
+• **Enterprise REST API**: Comprehensive backend API with session management, barcode processing, data export, and device tracking capabilities
+• **Device Hostname Tracking**: Automatic device identification with unique hostname generation (Manufacturer_Model_AndroidVersion) for multi-device environments
+• **Comprehensive Documentation**: 15+ detailed wiki guides covering setup, deployment, Docker configuration, API integration, and troubleshooting
+
+### Technical Enhancements:
+• **Dual Processing Modes**: Seamless switching between File-based (offline) and HTTP(s) Post (real-time) processing modes
+• **Network Security Configuration**: Automatic cleartext HTTP support for development environments with network_security_config.xml
+• **Symbology Mapping System**: Accurate barcode type identification and display in web interface with corrected database mappings
+• **Complete Database Schema**: Optimized MySQL database with sessions, barcodes, and symbology_types tables with proper foreign key relationships
+• **Multi-Format Export**: Web-based export to Excel (.xlsx), CSV (.csv), and text (.txt) formats with batch operations and session management
+• **Production-Ready Architecture**: Database optimization, security configuration, performance tuning, and horizontal scalability features
+
+### Web Management System Features:
+• **Real-Time Session Monitoring**: Live display of scanning sessions with device information, barcode counts, and timestamps
+• **Session Detail Views**: Comprehensive barcode data display with symbology types, timestamps, and metadata
+• **Data Reset Functionality**: Complete database reset capability with confirmation dialogs and real-time UI updates
+• **Responsive Design**: Modern web interface optimized for desktop and mobile viewing with Zebra branding
+• **Auto-Refresh Technology**: Silent background updates preventing UI flickering during real-time data synchronization
+
+### Docker Deployment System:
+• **Multi-Container Architecture**: Apache+PHP web server, MySQL 8.0 database, and phpMyAdmin in orchestrated containers
+• **Environment Configuration**: Flexible environment variable configuration with development and production profiles
+• **Volume Management**: Persistent data storage with backup capabilities and maintenance scripts
+• **Network Configuration**: Isolated container networking with proper port mapping and security controls
+• **Health Monitoring**: Built-in health checks and logging for all container services
+
+### Android App Enhancements:
+• **Settings Mode Selection**: New processing mode setting allowing users to choose between File-based and HTTP(s) Post modes
+• **Endpoint Configuration**: HTTP(s) endpoint URL configuration with validation and connection testing
+• **Upload Functionality**: Session data upload with JSON payload including device information and barcode arrays
+• **Error Handling**: Comprehensive network error handling with user feedback and retry mechanisms
+• **Connection Validation**: Built-in connectivity testing for endpoint validation and network troubleshooting
+
+### API and Database Features:
+• **RESTful API Design**: Well-structured endpoints for session creation, barcode insertion, data retrieval, and system management
+• **Database Optimization**: Indexed tables, optimized queries, and performance tuning for high-volume barcode processing
+• **Security Features**: SQL injection protection, input validation, and prepared statement usage throughout the backend
+• **Error Logging**: Comprehensive server-side logging with detailed error reporting and debugging information
+• **Backup and Maintenance**: Automated backup scripts and database maintenance procedures for production environments
+
+The enterprise web management system transforms the standalone Android app into a complete enterprise solution with centralized monitoring, real-time data synchronization, and comprehensive deployment capabilities for production environments.
+
+## Version 1.22
+**Enhanced Session Management with Advanced Folder Operations**
+
+Comprehensive session file management with intelligent UI and folder operations:
+
+• **Folder Long Press Selection**: Implemented long press gesture detection (500ms timeout) to select folders for rename and delete operations with haptic feedback  
+• **Context-Sensitive UI Controls**: Smart button visibility system where Select/Share buttons only appear when files are selected (hidden for folders since they cannot be shared or exported)  
+• **Dynamic Menu System**: Rename and Delete menu options automatically show/hide based on selection state - only visible when a file or folder is selected  
+• **Enhanced File Operations**: Separated file and folder handling with dedicated methods (renameFile/renameFolder, deleteSelectedFileOrFolder) and appropriate user messaging  
+• **Intelligent Touch Handling**: Long press cancellation when finger moves >20px prevents accidental folder selection, proper gesture cleanup on ACTION_UP/ACTION_CANCEL  
+• **Complete Internationalization**: Added 4 new strings (please_select_file_or_folder, cannot_rename_parent_folder, error_renaming_folder, rename_folder) translated across all 72 supported languages  
+• **Improved User Experience**: Unified file/folder management interface with consistent visual selection feedback and context-aware error messaging  
+
+### Technical Enhancements:
+• Enhanced FileAdapter with OnSelectionChangeListener interface for real-time UI updates  
+• Added long press detection using Handler with configurable timeout and movement cancellation  
+• Implemented selection state callbacks to automatically update button and menu visibility  
+• Modified visual selection logic to support both files and folders (excluding parent directory)  
+• Fixed translation automation script double-escaping issues causing build failures  
+• Maintained 100% translation coverage (197 strings × 72 languages = 14,184 translations)  
+
+The enhanced session management system provides intuitive folder operations while maintaining smart UI behavior that adapts to user selection context, ensuring optimal usability for both file and folder management tasks.
+
+## Version 1.21
+**Advanced AI Configuration System with Dynamic Settings Management**
+
+Comprehensive AI and camera configuration capabilities with enterprise-grade managed configuration support:
+
+• **Dynamic AI Configuration**: Advanced settings for AI model input size with three performance-optimized presets (640x640 Small, 1280x1280 Medium, 1600x1600 Large) including speed/accuracy guidance  
+• **Camera Resolution Control**: Four resolution options (1MP, 2MP, 4MP, 8MP) with specific use case recommendations for different barcode types and distances  
+• **Inference Processor Selection**: DSP (Digital Signal Processor), GPU (Graphics Processing Unit), and CPU (Central Processing Unit) options with performance characteristics  
+• **Enterprise Managed Configuration**: Full EMM/MDM support with nested "advanced" settings bundle containing all three new configuration options  
+• **Real-time Configuration Updates**: Settings changes automatically restart CameraXLivePreviewActivity and reload BarcodeTracker configuration without full app restart  
+• **Performance-Aware UI**: Smart descriptions guide users to optimal settings based on scanning requirements (large/close barcodes vs small/distant barcodes)  
+• **Constants-Based Architecture**: All hardcoded settings moved to Constants class with consistent preference key naming patterns  
+• **Automatic Translation System**: Enhanced translation workflow with comprehensive verification and 72 language support including high-quality translations for major languages  
+
+### Technical Enhancements:
+• Removed hardcoded `InferencerOptions.DSP` and `640x640` dimensions from BarcodeTracker  
+• Dynamic shared preferences loading with enum-based configuration (EInferenceType.toInferencerOptions(), EModelInputSize.getWidth/getHeight(), ECameraResolution.getWidth/getHeight())  
+• ManagedConfigurationReceiver enhanced with nested bundle support and activity restart mechanism  
+• Universal translation script with intelligent Android project detection and detailed completion reporting
+
+The advanced configuration system provides granular control over AI performance and camera capabilities, enabling optimal barcode detection for different use cases while supporting enterprise deployment scenarios through comprehensive managed configuration integration.
+
+## Version 1.20
+**Comprehensive language selection system with 71+ language support**
+
+Add complete internationalization capabilities with comprehensive language selection and localization:
+
+• Language selection dropdown in settings with native language names and Unicode flag emojis (🇫🇷 Français, 🇪🇸 Español, 🇩🇪 Deutsch, etc.)
+• Support for 71+ languages including System Language option with automatic detection  
+• Validation-based language switching - changes apply only when settings are confirmed, not immediately  
+• Complete string externalization with translations for all supported languages  
+• Persistent language preference storage that survives app restarts and device reboots  
+• Full application restart mechanism ensuring proper locale switching across all activities  
+• Custom dropdown styling with white background and zebra blue outline matching app theme
+• Improved settings UI with button reordering (Cancel left, Validate right)
+• Comprehensive locale management through LocaleHelper utility with flag emoji mapping
+• Enhanced user experience with language changes requiring explicit validation
+
+The language system provides enterprise-grade internationalization support, allowing users to override system language preferences while maintaining consistent UI theming and providing immediate visual feedback through country flag emojis.
+
+## Version 1.18
+**Persistent flashlight toggle with automatic state restoration**
+
+Enhance camera functionality with persistent flashlight control that remembers user preferences across app sessions:
+
+• Flashlight toggle icon automatically restores previous on/off state when opening camera view  
+• Flashlight setting persists through app restarts, activity navigation, and device orientation changes    
+• Improved user experience with consistent lighting preferences across barcode capture workflows  
+
+Users can now toggle the flashlight on during scanning and expect it to remain active when returning to the camera view, providing continuous lighting support for challenging scanning environments without needing to manually re-enable the flashlight each time.
+
+## Version 1.17
+**Implement interactive capture zone with barcode filtering**
+
+Add a complete capture zone system that allows users to define a rectangular area for focused barcode scanning:
+
+• Interactive capture zone overlay with drag, resize, and corner anchor controls  
+• Visual toggle icon in top-right corner with enabled/disabled states using alpha transparency  
+• Real-time barcode filtering - only process barcodes within the capture zone boundaries  
+• Persistent settings that save zone position, size, and enabled state across app sessions  
+• Comprehensive capture data filtering - only capture barcodes within the defined zone  
+• Force portrait mode across entire application for consistent user experience  
+• Enhanced logging and error handling for capture zone operations  
+
+The capture zone provides users with precise control over barcode detection, allowing them to focus on specific areas of the camera view while ignoring barcodes outside the defined region. When enabled, both the real-time preview and final capture results only include barcodes that intersect with the capture zone.

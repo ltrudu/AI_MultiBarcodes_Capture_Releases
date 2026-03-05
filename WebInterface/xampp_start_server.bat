@@ -1,0 +1,409 @@
+@echo off
+setlocal enabledelayedexpansion
+
+echo =========================================================
+echo AI MultiBarcode Capture - XAMPP Server Startup
+echo =========================================================
+echo.
+
+REM Detect XAMPP installation location (C:\xampp or D:\xampp)
+set XAMPP_PATH=
+if exist "C:\xampp" (
+    set XAMPP_PATH=C:\xampp
+    echo [INFO] XAMPP detected at C:\xampp
+	goto installation
+) else if exist "D:\xampp" (
+    set XAMPP_PATH=D:\xampp
+    echo [INFO] XAMPP detected at D:\xampp
+	goto installation
+) else (
+    echo [ERROR] XAMPP not found at C:\xampp or D:\xampp
+    echo.
+    echo Please install XAMPP first:
+    echo 1. Download from: https://www.apachefriends.org/
+    echo 2. Install to C:\xampp or D:\xampp
+    echo 3. Or extract xampp.zip to C:\ or D:\ (creates xampp folder automatically)
+    echo 4. Run this script again
+    echo.
+    pause
+    exit /b 1
+)
+
+:installation
+echo [INFO] Using XAMPP installation at: %XAMPP_PATH%
+echo.
+
+REM Check if XAMPP is already running
+echo [INFO] Checking if XAMPP services are running...
+tasklist /FI "IMAGENAME eq httpd.exe" 2>NUL | find /I /N "httpd.exe">NUL
+if "%ERRORLEVEL%"=="0" (
+    echo [WARNING] Apache is already running
+    echo Stopping Apache...
+    taskkill /F /IM httpd.exe >nul 2>&1
+    timeout /t 3 /nobreak >nul
+)
+
+tasklist /FI "IMAGENAME eq mysqld.exe" 2>NUL | find /I /N "mysqld.exe">NUL
+if "%ERRORLEVEL%"=="0" (
+    echo [WARNING] MySQL is already running
+    echo Stopping MySQL...
+    taskkill /F /IM mysqld.exe >nul 2>&1
+    timeout /t 3 /nobreak >nul
+)
+
+echo.
+echo =========================================================
+echo STEP 1: Updating XAMPP Installation
+echo =========================================================
+echo.
+
+REM Call the update script to install/update all files and configurations
+echo [INFO] Updating XAMPP installation with latest files...
+call "%~dp0xampp_update_server.bat"
+if errorlevel 1 (
+    echo [ERROR] XAMPP update failed!
+    echo.
+    pause
+    exit /b 1
+)
+echo [OK] XAMPP installation updated successfully
+
+echo.
+echo =========================================================
+echo STEP 2: Detecting Network Configuration
+echo =========================================================
+echo.
+
+REM Detect host IP address
+echo [INFO] Detecting host IP address...
+
+REM Collect all IPv4 addresses with interface names using PowerShell
+set IP_COUNT=0
+for /f "tokens=1,2,3 delims=|" %%A in ('powershell -NoProfile -Command "Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -match '^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)' } | ForEach-Object { $iface = (Get-NetAdapter -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue).Name; if(-not $iface){ $iface='Unknown' }; Write-Output ($_.IPAddress + '|' + $iface + '|') }"') do (
+    set /a IP_COUNT+=1
+    set "IP_!IP_COUNT!=%%A"
+    set "IFACE_!IP_COUNT!=%%B"
+)
+
+REM Handle based on number of interfaces found
+if !IP_COUNT!==0 (
+    echo [WARNING] Could not detect host IP automatically
+    set HOST_IP=127.0.0.1
+    goto :ip_selected
+)
+
+if !IP_COUNT!==1 (
+    set "HOST_IP=!IP_1!"
+    echo [OK] Detected host IP: !HOST_IP! ^(!IFACE_1!^)
+    goto :ip_selected
+)
+
+REM Multiple interfaces found - let user select
+echo.
+echo Found !IP_COUNT! network interfaces:
+echo.
+for /L %%i in (1,1,!IP_COUNT!) do (
+    echo   %%i. !IP_%%i! - !IFACE_%%i!
+)
+echo.
+set /p "IP_CHOICE=Select interface [1-!IP_COUNT!]: "
+
+REM Validate choice
+if "!IP_CHOICE!"=="" set IP_CHOICE=1
+if !IP_CHOICE! LSS 1 set IP_CHOICE=1
+if !IP_CHOICE! GTR !IP_COUNT! set IP_CHOICE=!IP_COUNT!
+
+set "HOST_IP=!IP_%IP_CHOICE%!"
+echo.
+echo [OK] Selected: !HOST_IP! ^(!IFACE_%IP_CHOICE%!^)
+
+:ip_selected
+
+REM Get external IP
+echo [INFO] Detecting external IP address...
+set EXTERNAL_IP=Unable to detect
+for /f "usebackq delims=" %%i in (`powershell -NoProfile -ExecutionPolicy Bypass -Command "try { (Invoke-WebRequest -Uri 'http://ipinfo.io/ip' -TimeoutSec 5 -UseBasicParsing).Content.Trim() } catch { 'Unable to detect' }" 2^>nul`) do set EXTERNAL_IP=%%i
+
+if "!EXTERNAL_IP!"=="Unable to detect" (
+    echo [WARNING] External IP could not be detected
+) else (
+    echo [OK] External IP: !EXTERNAL_IP!
+)
+
+echo.
+echo =========================================================
+echo STEP 3: Validating SSL Certificates
+echo =========================================================
+echo.
+
+REM Check if certificates.conf exists
+if not exist "%~dp0certificates.conf" (
+    echo [WARNING] certificates.conf not found, skipping certificate validation
+    goto :skip_cert_check
+)
+
+REM Read current certificate IPs from certificates.conf
+set CERT_IP2=
+set CERT_IP4=
+for /f "tokens=1,2 delims==" %%a in ('type "%~dp0certificates.conf" ^| findstr "WMS_SAN_IP2"') do (
+    set "CERT_IP2=%%b"
+    set "CERT_IP2=!CERT_IP2:"=!"
+)
+for /f "tokens=1,2 delims==" %%a in ('type "%~dp0certificates.conf" ^| findstr "WMS_SAN_IP4"') do (
+    set "CERT_IP4=%%b"
+    set "CERT_IP4=!CERT_IP4:"=!"
+)
+
+echo [INFO] Current certificate configuration:
+echo        - Local IP in cert:    !CERT_IP2!
+echo        - External IP in cert: !CERT_IP4!
+echo [INFO] Detected network IPs:
+echo        - Local IP detected:   !HOST_IP!
+echo        - External IP detected: !EXTERNAL_IP!
+
+REM Check if IPs match
+set CERT_NEEDS_UPDATE=false
+
+if not "!CERT_IP2!"=="!HOST_IP!" (
+    set CERT_NEEDS_UPDATE=true
+    echo.
+    echo [WARNING] Local IP mismatch: Certificate has !CERT_IP2!, but current IP is !HOST_IP!
+)
+
+if not "!EXTERNAL_IP!"=="Unable to detect" (
+    if not "!CERT_IP4!"=="!EXTERNAL_IP!" (
+        set CERT_NEEDS_UPDATE=true
+        echo [WARNING] External IP mismatch: Certificate has !CERT_IP4!, but current IP is !EXTERNAL_IP!
+    )
+)
+
+if "!CERT_NEEDS_UPDATE!"=="true" (
+    echo.
+    echo *** SSL certificates do not match current network configuration ***
+    echo *** HTTPS connections may fail or show security warnings ***
+    echo.
+    set /p "REGEN_CERTS=Do you want to generate new certificates? (yes/no): "
+
+    if /i "!REGEN_CERTS!"=="yes" (
+        echo.
+        echo [INFO] Updating certificates.conf with current IPs...
+
+        REM Update WMS_SAN_IP2 with local IP
+        powershell -NoProfile -Command "(Get-Content '%~dp0certificates.conf') -replace 'WMS_SAN_IP2=\"[^\"]*\"', 'WMS_SAN_IP2=\"!HOST_IP!\"' | Set-Content '%~dp0certificates.conf'"
+
+        REM Add or update WMS_SAN_IP4 with external IP if available
+        if not "!EXTERNAL_IP!"=="Unable to detect" (
+            findstr /C:"WMS_SAN_IP4" "%~dp0certificates.conf" >nul 2>&1
+            if errorlevel 1 (
+                REM Add WMS_SAN_IP4 after WMS_SAN_IP3
+                powershell -NoProfile -Command "(Get-Content '%~dp0certificates.conf') -replace '(WMS_SAN_IP3=\"[^\"]*\")', \"`$1`nWMS_SAN_IP4=`\"!EXTERNAL_IP!`\"\" | Set-Content '%~dp0certificates.conf'"
+            ) else (
+                REM Update existing WMS_SAN_IP4
+                powershell -NoProfile -Command "(Get-Content '%~dp0certificates.conf') -replace 'WMS_SAN_IP4=\"[^\"]*\"', 'WMS_SAN_IP4=\"!EXTERNAL_IP!\"' | Set-Content '%~dp0certificates.conf'"
+            )
+        )
+
+        echo [OK] certificates.conf updated
+        echo.
+        echo [INFO] Generating new SSL certificates...
+        call "%~dp0create-certificates.bat"
+        if errorlevel 1 (
+            echo [ERROR] Certificate generation failed!
+            pause
+            exit /b 1
+        )
+        echo [OK] New certificates generated
+
+        REM Copy certificates to XAMPP
+        echo [INFO] Installing certificates to XAMPP...
+        if not exist "%XAMPP_PATH%\apache\conf\ssl" mkdir "%XAMPP_PATH%\apache\conf\ssl"
+        copy /Y "%~dp0ssl\wms.crt" "%XAMPP_PATH%\apache\conf\ssl\" >nul 2>&1
+        copy /Y "%~dp0ssl\wms.key" "%XAMPP_PATH%\apache\conf\ssl\" >nul 2>&1
+        copy /Y "%~dp0ssl\wms_ca.crt" "%XAMPP_PATH%\apache\conf\ssl\" >nul 2>&1
+
+        REM Also copy to htdocs for download
+        if not exist "%XAMPP_PATH%\htdocs\certificates" mkdir "%XAMPP_PATH%\htdocs\certificates"
+        copy /Y "%~dp0ssl\wms_ca.crt" "%XAMPP_PATH%\htdocs\certificates\" >nul 2>&1
+        copy /Y "%~dp0ssl\android_ca_system.pem" "%XAMPP_PATH%\htdocs\certificates\" >nul 2>&1
+
+        echo [OK] Certificates installed to XAMPP
+    ) else (
+        echo [INFO] Skipping certificate regeneration
+        echo [WARNING] HTTPS connections may not work correctly with mismatched certificates
+    )
+) else (
+    echo [OK] SSL certificates match current network configuration
+)
+
+:skip_cert_check
+
+echo.
+echo =========================================================
+echo STEP 4: Starting MySQL Service
+echo =========================================================
+echo.
+
+REM Fix ALL configuration paths if on D: drive
+if "%XAMPP_PATH%"=="D:\xampp" (
+    echo [INFO] Comprehensive path update for D: drive - this may take a moment...
+
+    REM Fix ALL .ini, .conf, and .cnf files in entire XAMPP directory
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $utf8 = New-Object System.Text.UTF8Encoding $false; $files = Get-ChildItem '%XAMPP_PATH%' -Include *.ini,*.conf,*.cnf -Recurse -File -ErrorAction SilentlyContinue; $count=0; foreach($f in $files){ try{ $content = [System.IO.File]::ReadAllText($f.FullName); $updated = $content -replace 'C:/xampp','D:/xampp' -replace 'C:\\xampp','D:\\xampp' -replace 'C:\\\\xampp','D:\\\\xampp'; if($content -ne $updated){ [System.IO.File]::WriteAllText($f.FullName, $updated, $utf8); $count++ } }catch{} } Write-Host \"Updated $count configuration files\""
+
+    if errorlevel 1 (
+        echo [WARNING] Some configuration files may not have been updated
+    ) else (
+        echo [OK] All configurations updated for D: drive
+    )
+)
+
+REM Start MySQL
+echo [INFO] Starting MySQL...
+start "" "%XAMPP_PATH%\mysql\bin\mysqld.exe" --defaults-file="%XAMPP_PATH%\mysql\bin\my.ini" --standalone
+echo [OK] MySQL starting...
+timeout /t 5 /nobreak >nul
+
+REM Check if MySQL is running
+tasklist /FI "IMAGENAME eq mysqld.exe" 2>NUL | find /I /N "mysqld.exe">NUL
+if "%ERRORLEVEL%"=="0" (
+    echo [OK] MySQL is running
+) else (
+    echo [ERROR] MySQL failed to start
+    echo Check %XAMPP_PATH%\mysql\data\*.err for errors
+    pause
+    exit /b 1
+)
+
+REM Initialize database if needed
+echo [INFO] Initializing database and user...
+
+REM Create database if it doesn't exist
+"%XAMPP_PATH%\mysql\bin\mysql.exe" -u root -e "CREATE DATABASE IF NOT EXISTS barcode_wms CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" >nul 2>&1
+
+REM Create MySQL user and grant privileges (matching Docker setup)
+echo [INFO] Creating database user and setting permissions...
+"%XAMPP_PATH%\mysql\bin\mysql.exe" -u root -e "CREATE USER IF NOT EXISTS 'wms_user'@'localhost' IDENTIFIED BY 'wms_password';" >nul 2>&1
+"%XAMPP_PATH%\mysql\bin\mysql.exe" -u root -e "CREATE USER IF NOT EXISTS 'wms_user'@'%%' IDENTIFIED BY 'wms_password';" >nul 2>&1
+"%XAMPP_PATH%\mysql\bin\mysql.exe" -u root -e "GRANT ALL PRIVILEGES ON barcode_wms.* TO 'wms_user'@'localhost';" >nul 2>&1
+"%XAMPP_PATH%\mysql\bin\mysql.exe" -u root -e "GRANT ALL PRIVILEGES ON barcode_wms.* TO 'wms_user'@'%%';" >nul 2>&1
+"%XAMPP_PATH%\mysql\bin\mysql.exe" -u root -e "FLUSH PRIVILEGES;" >nul 2>&1
+echo [OK] Database user created and permissions granted
+
+REM Initialize/Update database schema (safe to run multiple times)
+echo [INFO] Initializing database schema...
+"%XAMPP_PATH%\mysql\bin\mysql.exe" -u root barcode_wms < "database\init.sql" 2>nul
+if errorlevel 1 (
+    echo [ERROR] Database schema initialization failed!
+    echo.
+    echo Troubleshooting steps:
+    echo 1. Check if MySQL is running properly
+    echo 2. Verify init.sql exists at: database\init.sql
+    echo 3. Check MySQL error logs at: %XAMPP_PATH%\mysql\data\*.err
+    echo.
+    echo Attempting manual initialization...
+    "%XAMPP_PATH%\mysql\bin\mysql.exe" -u root barcode_wms < "database\init.sql"
+    pause
+    exit /b 1
+)
+
+REM Verify database schema
+echo [INFO] Verifying database schema...
+for /f %%i in ('"%XAMPP_PATH%\mysql\bin\mysql.exe" -u root barcode_wms -sN -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='barcode_wms' AND TABLE_NAME IN ('capture_sessions', 'barcodes', 'symbologies');" 2^>nul') do set TABLE_COUNT=%%i
+for /f %%i in ('"%XAMPP_PATH%\mysql\bin\mysql.exe" -u root barcode_wms -sN -e "SELECT COUNT(*) FROM information_schema.VIEWS WHERE TABLE_SCHEMA='barcode_wms' AND TABLE_NAME IN ('session_statistics', 'barcode_details');" 2^>nul') do set VIEW_COUNT=%%i
+
+if "%TABLE_COUNT%"=="3" (
+    if "%VIEW_COUNT%"=="2" (
+        echo [OK] Database schema verified successfully (3 tables, 2 views)
+    ) else (
+        echo [WARNING] Database views incomplete - found !VIEW_COUNT! of 2 expected views
+        echo The web interface may not work correctly
+    )
+) else (
+    echo [WARNING] Database tables incomplete - found !TABLE_COUNT! of 3 expected tables
+    echo The web interface may not work correctly
+)
+
+echo.
+echo =========================================================
+echo STEP 5: Starting Apache Web Server
+echo =========================================================
+echo.
+
+REM Start Apache
+echo [INFO] Starting Apache...
+start "" "%XAMPP_PATH%\apache\bin\httpd.exe"
+echo [OK] Apache starting...
+timeout /t 3 /nobreak >nul
+
+REM Check if Apache is running
+tasklist /FI "IMAGENAME eq httpd.exe" 2>NUL | find /I /N "httpd.exe">NUL
+if "%ERRORLEVEL%"=="0" (
+    echo [OK] Apache is running
+) else (
+    echo [ERROR] Apache failed to start
+    echo Check %XAMPP_PATH%\apache\logs\error.log for details
+    pause
+    exit /b 1
+)
+
+echo.
+echo =========================================================
+echo STEP 6: Saving IP Configuration
+echo =========================================================
+echo.
+
+REM Get timestamp
+for /f "delims=" %%T in ('powershell -NoProfile -Command "Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'"') do set TIMESTAMP=%%T
+
+REM Create config directory and write file
+if not exist "%XAMPP_PATH%\htdocs\config" mkdir "%XAMPP_PATH%\htdocs\config"
+(
+echo {
+echo   "local_ip": "!HOST_IP!",
+echo   "external_ip": "!EXTERNAL_IP!",
+echo   "last_updated": "%TIMESTAMP%",
+echo   "detection_method": "xampp_start_server"
+echo }
+) > "%XAMPP_PATH%\htdocs\config\ip-config.json"
+
+echo [OK] IP configuration saved
+
+echo.
+echo =========================================================
+echo SUCCESS! AI MultiBarcode Capture is now running!
+echo =========================================================
+echo.
+echo XAMPP Installation: %XAMPP_PATH%
+echo.
+echo Access Points:
+echo - Web Management System: http://localhost:3500
+echo - Secure Management:      https://localhost:3543
+echo - phpMyAdmin:             http://localhost:3500/phpmyadmin
+echo.
+echo From other devices on your network:
+echo - HTTP:  http://!HOST_IP!:3500
+echo - HTTPS: https://!HOST_IP!:3543
+echo.
+echo Android App Configuration:
+echo - HTTP Endpoint:  http://!HOST_IP!:3500/api/barcodes.php
+echo - HTTPS Endpoint: https://!HOST_IP!:3543/api/barcodes.php
+echo.
+echo SSL Certificate Installation:
+echo - For Android: Install ssl\android_ca_system.pem
+echo - For browsers: Import ssl\wms_ca.crt to trusted root
+echo.
+echo Database Credentials:
+echo - Host: localhost
+echo - Database: barcode_wms
+echo - Username: wms_user
+echo - Password: wms_password
+echo.
+echo Management Commands:
+echo - Stop Apache:  %XAMPP_PATH%\apache\bin\httpd.exe -k stop
+echo - Stop MySQL:   %XAMPP_PATH%\mysql\bin\mysqladmin.exe -u root shutdown
+echo - View Logs:    %XAMPP_PATH%\apache\logs\
+echo.
+echo XAMPP Control Panel:
+echo - Run: %XAMPP_PATH%\xampp-control.exe (for GUI control)
+echo.
+pause
