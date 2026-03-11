@@ -2,6 +2,192 @@
 
 All notable changes to the AI MultiBarcode Capture Application are documented in this file.
 
+## Version 1.45
+
+IP configuration update
+Documentation updates
+
+## Version 1.44
+
+Performance Indicator chage Latest
+Now the performance indicator gives the processing time of only the barcode analyzer (not the other tasks like image cropping, rotation, etc...)
+
+## Version 1.43
+
+Improved high res stabilization settings workflow
+
+## Version 1.42
+
+Release Notes - Dynamic Resolutions & High-Res Capture Stabilization
+
+  New Features
+
+-   Dynamic Camera Resolution Selection
+
+  - Automatic camera detection: The app now automatically detects all available cameras on your device and their supported
+  resolutions
+  - Full resolution support: Access all native camera resolutions instead of predefined presets
+  - Camera switching: Easily switch between front and back cameras with resolution options specific to each
+  - Smart defaults: Automatically selects optimal resolutions based on device capabilities
+
+-   High-Resolution Capture Stabilization
+
+  A new intelligent system that improves barcode decoding accuracy in difficult conditions:
+
+  - Automatic instability detection: Monitors the debounce cache for barcodes that are visible but cannot be decoded
+  - On-demand high-res capture: When instability is detected after N consecutive frames, automatically triggers a full-resolution
+  still capture (up to 16.3MP on supported devices)
+  - Smart resolution management:
+    - Live preview analysis runs at user-selected resolution for optimal performance
+    - High-res captures use the maximum sensor resolution by binding ImageCapture separately
+  - Visual feedback: White border flash indicates when a high-res stabilization capture is taken
+  - Cache validation: High-res decode results are matched back to cached barcodes by position (IOU) to update/validate values
+
+-   Settings
+
+  New options in the Optimizations section:
+  - Enable High-Res Capture Stabilization: Toggle the automatic high-res capture feature
+  - Dynamic Camera Mode: Switch between static presets and dynamic resolution discovery
+
+-   Technical Improvements
+
+  - Queries actual ImageAnalysis resolution after camera binding using getResolutionInfo() for accurate coordinate mapping
+  - Separate binding strategy for ImageCapture to achieve maximum sensor resolution without limiting ImageAnalysis
+  - Enhanced stability tracking in CachedBarcode with value consistency monitoring
+
+## Version 1.41
+
+Dynamic Camera & Resolution Selection (Experimental)
+What's New
+
+Dynamic Camera & Resolution Selection (Experimental)
+
+Added support for selecting different cameras and resolutions beyond the preset options:
+
+Resolution Mode Setting:
+
+Static (Presets) - Default mode using 7 predefined resolutions (1MP to 12.6MP)
+Dynamic (Experimental) - Query all device cameras and their supported resolutions
+Dynamic Mode Features:
+
+Select from all available cameras (Back, Front, Telephoto, Ultra-Wide, External)
+View camera info (focal length, flash availability)
+Resolution filter options:
+Standard Resolutions - Only shows 720p, 1080p, 1440p, 4K, 8K (recommended)
+All Resolutions - Shows all device-supported sizes (experimental)
+⚠️ Note: Dynamic mode is experimental. Many non-standard resolutions may not work correctly with the AI model.
+
+New Architecture:
+
+Strategy pattern implementation (ICameraResolutionProvider) for clean separation between Static and Dynamic modes
+Camera2 API integration for full device camera enumeration
+
+## Version 1.40
+
+### Auto Capture Enhancements
+
+The Auto Capture feature has been enhanced with new capabilities:
+
+| Condition Type | Description |
+|----------------|-------------|
+| **AND Logic** | Auto capture triggers when **ALL** conditions are satisfied simultaneously |
+| **Number of Barcodes** | Trigger when exactly N barcodes are detected |
+| **Contains Regex** | Trigger when N+ barcodes match a regex pattern |
+| **Symbology Match** | Trigger when N+ barcodes of a specific symbology are detected |
+| **Complex Match** | Trigger when N+ barcodes match both symbology AND regex pattern |
+| **Import/Export** | Save and load auto capture configurations as JSON |
+| **Condition Descriptions** | Add optional notes to conditions for better organization |
+
+#### Menu Options
+
+- `Import from JSON` - Load conditions from a previously exported file
+- `Export to JSON` - Save your current conditions for backup or sharing
+- `Delete All` - Clear all conditions at once
+
+> **Note:** Auto Capture uses AND logic - **ALL** conditions must be satisfied for capture to trigger automatically.
+
+### Filtering Conditions System
+
+A new conditions-based filtering system replaces the previous single regex filter:
+
+| Feature | Description |
+|---------|-------------|
+| **OR Logic** | Entities matching **at least one** condition will be detected |
+| **Contains Regex** | Filter barcodes by regex pattern |
+| **Symbology Match** | Filter by barcode symbology type |
+| **Complex Match** | Combine symbology AND regex for precise filtering |
+| **Import/Export** | Save and load filtering configurations as JSON |
+| **No Conditions = Include All** | When no conditions are configured, all entities pass through |
+
+#### How It Works
+
+1. Navigate to **Settings** → **Filtering** section
+2. Enable filtering with the checkbox
+3. Tap **Edit Filtering Conditions** to configure your conditions
+4. Add conditions using the **+** button:
+   - **Contains Regex** - Match barcode values against a pattern
+   - **Symbology Match** - Match specific barcode types (QR Code, Code128, etc.)
+   - **Complex Match** - Match both symbology AND regex pattern
+
+> **Note:** Filtering uses OR logic - a barcode only needs to match ONE condition to be included in the results.
+
+---
+
+## Summary
+
+This release improves both Auto Capture and Filtering with a unified conditions-based approach, giving users more flexibility and control over barcode detection and capture workflows.
+
+
+## Version 1.39
+
+Added AutoCapture mechanism
+Auto Capture
+
+Automatically trigger barcode capture when user-defined conditions are met.
+
+Condition Types:
+
+Number of Barcodes - Capture when exactly N barcodes are detected (only one condition of this type allowed)
+Contains Regex Pattern - Capture when N+ barcodes match a regex pattern (multiple allowed)
+Features:
+
+Configurable via Settings > Auto Capture section
+Conditions editor with add/edit/delete functionality
+Built-in predefined regex picker with 40+ patterns organized by category:
+Web URLs, IP Addresses, MAC Addresses
+Product Barcodes (UPC-A, EAN-13, GTIN-14)
+Device IDs (IMEI, Serial Numbers)
+Book/Media (ISBN-10, ISBN-13, ISSN)
+Phone Numbers (US, France, Germany, UK, International)
+Industrial (Part Numbers, Lot/Batch, Container IDs)
+All conditions must be TRUE for auto capture to trigger
+Debounce Decoded Entities
+
+Reduce barcode flickering by caching decoded results across frames.
+
+Features:
+
+Configurable max frames to retain cached barcodes
+Two matching algorithms:
+Center Distance - Match by bounding box center proximity (configurable pixel threshold)
+Intersection Over Union (IOU) - Match by bounding box overlap ratio (configurable threshold)
+Visual feedback: GREEN for freshly decoded, BLUE for cached, RED for unreadable
+Enabled by default with IOU algorithm
+Configuration
+
+Both features are accessible via Settings:
+
+Debounce - Under the Debounce section with algorithm selection and threshold controls
+Auto Capture - Under the Auto Capture section with enable toggle and conditions editor
+
+### Version 1.38
+
+Upgraded to latest SDK, fix unsupported resolutions bug, added debounce algorithm for barcode detection stability improvement
+Upgraded to latest SDK to support DSP on all Zebra devices that have one.
+Removed unsupported resolutions from settings.
+Added 12MP resolution (WIP, experimental)
+Added debouncing to barcode decoding to improve stability when the camera is shaking.
+
 ### Version 1.36 - ⚡ **Performance & Android 15+ Compatibility**
 
 **Ultra-fast native grayscale image processing with NDK/JNI and Android 15+ 16KB page size support.**

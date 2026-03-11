@@ -179,7 +179,7 @@ A comprehensive Android enterprise application demonstrating Zebra AI Vision SDK
 - **Barcode Symbologies**: Enable/disable specific barcode types
 - **Real-time Updates**: Configuration changes applied without restart
   
-- **More information on Managed Configuration here**: [Documentation](https://github.com/ZebraDevs/AI_MutliBarcodes_Capture/blob/master/MANAGED_CONFIGURATION.md)
+- **More information on Managed Configuration here**: [Documentation](https://github.com/ZebraDevs/AI_MutliBarcodes_Capture_Releases/blob/master/MANAGED_CONFIGURATION.md)
 
 ### **Supported Barcode Types**
 **2D Codes**: QR Code, Data Matrix, Aztec, PDF417, MaxiCode, and more  
@@ -231,10 +231,10 @@ https://github.com/ZebraDevs/AISuite_Android_Samples
 *Please be aware that this library / application / sample is provided as a community project without any guarantee of support*
 
 For technical questions and community support:
-- GitHub Issues: Report bugs and feature requests in the original repository: [link](https://github.com/ltrudu/AI_MutliBarcodes_Capture)
+- GitHub Issues: Report bugs and feature requests in the original repository: [link](https://github.com/ltrudu/AI_MutliBarcodes_Capture_Releases)
 - Zebra Developer Portal: Technical documentation and resources
 - Community Forums: Connect with other developers
 
 ## License
 
-All content under this repository's root folder is subject to the [Zebra End User Agreement](https://github.com/ltrudu/AI_MutliBarcodes_Capture/blob/master/LICENSE). By accessing, using, or distributing any part of this content, you agree to comply with the terms of the Development Tool License Agreement.
+All content under this repository's root folder is subject to the [Zebra End User Agreement](https://github.com/ltrudu/AI_MutliBarcodes_Capture_Releases/blob/master/LICENSE). By accessing, using, or distributing any part of this content, you agree to comply with the terms of the Development Tool License Agreement.
